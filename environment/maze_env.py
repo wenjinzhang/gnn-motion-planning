@@ -345,3 +345,7 @@ class MazeEnv:
                     if not self._edge_fp(ca, cb):
                         return False
             return True
+
+if __name__ == '__main__':
+    env = MazeEnv(dim=2, map_file='maze_files/mazes_new_dataset.npz')
+    

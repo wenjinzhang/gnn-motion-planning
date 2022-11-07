@@ -160,6 +160,52 @@ def plot_edges(states, edges, problem, index=0,
 
     return fig
 
+def plot_env_only(problem, new_list=None, fig=None, edge_classes=None, title='', save=None, title_size=25):
+    
+    # edges is a list
+    
+    plt.clf()
+    environment_map = problem["map"]
+    init_state = problem["init_state"]
+    goal_state = problem["goal_state"]
+    dim = init_state.size
+
+    if fig is None:
+        fig = plt.figure(figsize=(4, 4))
+
+    rect = patches.Rectangle((0.0, 0.0), 2.0, 2.0, linewidth=1, edgecolor='black', facecolor='none')
+    plt.gca().add_patch(rect)
+
+    map_width = environment_map.shape
+    d_x = 2.0 / map_width[0]
+    d_y = 2.0 / map_width[1]
+    for i in range(map_width[0]):
+        for j in range(map_width[1]):
+            if environment_map[i, j] > 0:
+                rect = patches.Rectangle((d_x * i, d_y * j), d_x, d_y, linewidth=1, edgecolor='#253494',
+                                         facecolor='#253494')
+                plt.gca().add_patch(rect)
+
+
+    plt.axis([0.0, 2.0, 0.0, 2.0])
+    plt.axis('off')
+    plt.axis('square')
+
+    plt.subplots_adjust(left=-0., right=1.0, top=1.0, bottom=-0.)
+
+
+    if save:
+        plt.savefig(save, bbox_inches='tight')
+        plt.close('all')
+    else:
+#         plt.show()
+        pass
+
+    return fig
+
+
+
+
 
 def merge_pic(image_paths, column, row, save_path):
     images = [Image.open(x) for x in image_paths]

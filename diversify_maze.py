@@ -97,6 +97,10 @@ def find_mazes(maze_num, density, dist2goal_threshold=1):
 
 
 if __name__ == '__main__':
-    maps, init_states, goal_states = find_mazes(4000, [57, INFINITY])
-    np.savez('maze_files/mazes_4000.npz', maps=maps, goal_states=goal_states, init_states=init_states)
-    print(len(maps))
+    maps, init_states, goal_states = find_mazes(0, [57, INFINITY])
+    print(maps[0])
+    print(init_states[0])
+    print(goal_states[0])
+
+    # np.savez('maze_files/mazes_4000.npz', maps=maps, goal_states=goal_states, init_states=init_states)
+    # print(len(maps))

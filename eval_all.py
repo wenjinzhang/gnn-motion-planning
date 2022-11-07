@@ -6,15 +6,17 @@ import numpy as np
 from environment import MazeEnv, KukaEnv, Kuka2Env
 import pickle
 
-env_names = ['Maze_2D_Easy', 'Maze_2D_Normal', 'Maze_2D_Hard', 'Maze_3D', 'Kuka_7D', 'Kuka_13D', 'Kuka_14D']
+env_names = ['Maze_2D_Easy', 'Maze_2D_Normal', 'Maze_2D_Hard', 'Maze_3D', 
+# 'Kuka_7D', 'Kuka_13D', 'Kuka_14D'
+]
 envs = [
     MazeEnv(dim=2, map_file='maze_files/mazes_easy.npz'),
     MazeEnv(dim=2, map_file='maze_files/mazes_normal.npz'),
     MazeEnv(dim=2, map_file='maze_files/mazes_hard.npz'),
     MazeEnv(dim=3, map_file="maze_files/mazes_hard_3.npz"),
-    KukaEnv(),
-    KukaEnv(kuka_file="kuka_iiwa/model_3.urdf", map_file="maze_files/kukas_13_3000.pkl"),
-    Kuka2Env()
+    # KukaEnv(),
+    # KukaEnv(kuka_file="kuka_iiwa/model_3.urdf", map_file="maze_files/kukas_13_3000.pkl"),
+    # Kuka2Env()
     ]
 indexeses = [np.arange(1000), np.arange(1000), np.arange(1000), np.arange(2000, 3000), np.arange(2000, 3000), np.arange(2000, 3000), np.arange(2000, 3000)]
 seeds = [1234]#, 2341, 3412, 4123]
