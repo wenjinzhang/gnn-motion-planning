@@ -160,14 +160,13 @@ def plot_edges(states, edges, problem, index=0,
 
     return fig
 
-def plot_env_only(problem, new_list=None, fig=None, edge_classes=None, title='', save=None, title_size=25):
-    
-    # edges is a list
+def plot_env_only(problem, env, fig=None, title='', save=None, title_size=25):
     
     plt.clf()
     environment_map = problem["map"]
     init_state = problem["init_state"]
     goal_state = problem["goal_state"]
+    
     dim = init_state.size
 
     if fig is None:
@@ -185,8 +184,17 @@ def plot_env_only(problem, new_list=None, fig=None, edge_classes=None, title='',
                 rect = patches.Rectangle((d_x * i, d_y * j), d_x, d_y, linewidth=1, edgecolor='#253494',
                                          facecolor='#253494')
                 plt.gca().add_patch(rect)
+    
+    # plot moving_obstacles with red color
+    moving_obstacles = env.moving_obstacles
 
-
+    for (i, j) in moving_obstacles:
+        rect = patches.Rectangle((d_x * i, d_y * j), d_x, d_y, linewidth=1, edgecolor='#942525', facecolor='#942525')
+        plt.gca().add_patch(rect)
+    
+    if title != '':
+        plt.title(title, fontdict = {'fontsize':title_size})
+    
     plt.axis([0.0, 2.0, 0.0, 2.0])
     plt.axis('off')
     plt.axis('square')

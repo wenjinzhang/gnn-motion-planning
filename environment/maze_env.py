@@ -1,6 +1,7 @@
 import numpy as np
 from .env_config import RRT_EPS, LIMITS, STICK_LENGTH
 
+from copy import deepcopy
 
 class MazeEnv:
     '''
@@ -38,13 +39,70 @@ class MazeEnv:
     def __str__(self):
         return 'maze'+str(self.config_dim)
 
+    def moving_once(self, problem, direction=None, step_size=1):
+        '''
+        moving all obstacles once with step_size
+        if direction is None, perform random move
+        direction = (up/down, left/right)
+        '''
+        if direction == None:
+            # random direction
+            direction = np.random.randint(3, size=2) - 1
+        
+        # print("direction", direction)
+
+        # target_obstacles
+        target_obstacles = self.moving_obstacles + direction * step_size
+
+        # print("Next Location", target_obstacles)
+
+        # check if target_obstacles is valid in range of map
+        temp_obs = target_obstacles.flatten()
+        valid_logic = np.logical_or(temp_obs < 1, temp_obs > self.map.shape[0]-1)
+        invalid = np.sum(valid_logic)
+
+        # print("valid_logic ", valid_logic )
+        if invalid > 0:
+            # reject moving
+            # print("reject moving")
+            pass
+        else:
+            # print("perform moving")
+            # perform moving
+            # for (i, j) in self.moving_obstacles:
+            #     self.map[i][j] = 0
+            # reset the fixed obstacles
+            self.map =  deepcopy(self.maps[self.order[self.index]])
+            
+            
+            for (i, j) in target_obstacles:
+                self.map[i][j] = 1
+
+
+            # update obstacles:  self.obstacles regenerate obstacles
+            self.obstacles = []
+
+            for i in range(self.map.shape[0]):
+                for j in range(self.map.shape[1]):
+                    if self.map[i, j] == 1:
+                        self.obstacles.append((i, j))
+            
+            self.obstacles = np.array(self.obstacles) * 2/ self.map.shape[0] - 1
+
+            problem["map"] = self.map
+
+            # update moving obstacles:
+            self.moving_obstacles = target_obstacles
+
+
+
     def init_new_problem(self, index=None):
         '''
         Initialize a new planning problem
         '''
         if index is None:
             index = self.episode_i
-        self.map = self.maps[self.order[index]]
+        self.map = deepcopy(self.maps[self.order[index]])
         self.width = self.map.shape[0]
         self.init_state = self.init_states[self.order[index]]
         self.goal_state = self.goal_states[self.order[index]]
@@ -52,6 +110,9 @@ class MazeEnv:
         self.episode_i = (self.episode_i) % len(self.order)
 
         self.collision_point = None
+
+        self.moving_obstacles = [(2,4),(2,5),(3,4),(3,5)]
+        self.index = index 
 
         # if index==2000:
         #     self.map[:] = 1
@@ -72,11 +133,22 @@ class MazeEnv:
 
         self.obstacles = []
 
+        # add moving obstacles
+        if len(self.moving_obstacles) > 0:
+            self.obstacles.extend(self.moving_obstacles)
+            for (i,j) in self.moving_obstacles:
+                self.map[i, j] == 1
+
         for i in range(self.map.shape[0]):
             for j in range(self.map.shape[1]):
                 if self.map[i, j] == 1:
                     self.obstacles.append((i, j))
-        self.obstacles = np.array(self.obstacles) / self.map.shape[0] - 0.5
+        
+        # print(self.obstacles)
+
+        # self.obstacles = np.array(self.obstacles) / self.map.shape[0] - 0.5
+        self.obstacles = np.array(self.obstacles) * 2/ self.map.shape[0] - 1
+        # self.obstacles = self._inverse_transform(self.obstacles, self.map.shape[0])
 
         self.collision_check_count = 0
 
