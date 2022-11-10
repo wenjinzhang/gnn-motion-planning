@@ -209,3 +209,13 @@ def train_explorer(epoch, data_path, model, model_path, env,
 
     torch.save(model.state_dict(), model_path)
     writer.close()
+
+if __name__ == '__main__':
+    from tqdm import tqdm
+    from config import set_random_seed
+    from str2name import str2name
+    env, model, model_path, model_s, model_s_path, data_path= str2name("maze2", get_data=True)
+
+    for epoch in tqdm(range(300)):
+        train_explorer(epoch, data_path, model, model_path, env)
+    
