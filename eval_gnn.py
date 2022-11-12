@@ -167,6 +167,13 @@ def create_data(free, collided, env, k):
 
 @torch.no_grad()
 def explore(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, smoother='model', loop=5):
+    '''
+    model: path explore to find a possible path
+    model_s: smooth model
+    loop: level of gnn
+    '''
+    
+
     
     c0 = env.collision_check_count
     t0 = time()

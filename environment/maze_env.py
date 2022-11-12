@@ -219,6 +219,15 @@ class MazeEnv:
             assert (np.abs(diff[:, 2]) <= LIMITS[2]).all()
 
         return np.sqrt(np.sum(diff ** 2, axis=-1))
+    
+    def path_distance(self, states):
+        '''
+        compute the path distance assume the path is collison free
+        '''
+        dist = 0
+        for i in range(len(states) - 1):
+            dist += self.distance(np.array(states[i]), np.array(states[i + 1]))
+        return dist
 
     def interpolate(self, from_state, to_state, ratio):
         diff = to_state - from_state

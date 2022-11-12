@@ -91,8 +91,7 @@ def plot_graph(graph, problem, title='', save=None):
 def plot_edges(states, edges, problem, index=0,
                new_list=None, fig=None, edge_classes=None, title='', save=None, title_size=25):
     
-    # edges is a list
-    
+    # edges are explored edges
     plt.clf()
     states = np.array(list(states))
     environment_map = problem["map"]
@@ -123,6 +122,7 @@ def plot_edges(states, edges, problem, index=0,
         iterator = enumerate(edges.items())
     else:
         iterator = enumerate(edges)
+    
     for index, item in iterator:
         node, parent = item
         node, parent = np.array(node), np.array(parent)
@@ -155,10 +155,88 @@ def plot_edges(states, edges, problem, index=0,
         plt.savefig(save, bbox_inches='tight')
         plt.close('all')
     else:
+        plt.show()
+        
+
+    return fig
+
+
+def plot_optimization_edges(states, edges, problem, index=0, new_list=None, fig=None, edge_classes=None, title='', save=None, title_size=25):
+    # 
+    plt.clf()
+    states = np.array(list(states))
+    environment_map = problem["map"]
+    init_state = problem["init_state"]
+    goal_state = problem["goal_state"]
+    dim = init_state.size
+
+    if fig is None:
+        fig = plt.figure(figsize=(4, 4))
+
+    rect = patches.Rectangle((0.0, 0.0), 2.0, 2.0, linewidth=1, edgecolor='black', facecolor='none')
+    plt.gca().add_patch(rect)
+
+    map_width = environment_map.shape
+    d_x = 2.0 / map_width[0]
+    d_y = 2.0 / map_width[1]
+    for i in range(map_width[0]):
+        for j in range(map_width[1]):
+            if environment_map[i, j] > 0:
+                rect = patches.Rectangle((d_x * i, d_y * j), d_x, d_y, linewidth=1, edgecolor='#253494',
+                                         facecolor='#253494')
+                plt.gca().add_patch(rect)
+
+    for i in range(len(states)):
+        draw_node(states[i], '#bbbbbb', dim=dim)
+        # plt.annotate('{}'.format(i), states[i]+1.0, color='black', fontsize=20)
+
+    for i in range(len(states) - 1):
+        draw_edge(states[i], states[i+1], 'green', dim=dim)
+        # print("{} -> {}".format(i, i+1))
+        
+
+    # if isinstance(edges, dict):
+    #     iterator = enumerate(edges.items())
+    # else:
+    #     iterator = enumerate(edges)
+    
+    # for index, item in iterator:
+    #     node, parent = item
+    #     node, parent = np.array(node), np.array(parent)
+    #     if edge_classes is None:
+    #         draw_edge(node, parent, 'green', dim=dim)
+    #     else:
+    #         if edge_classes[index]:
+    #             draw_edge(node, parent, 'red', dim=dim)
+    #         else:
+    #             draw_edge(node, parent, 'green', dim=dim)
+
+    draw_node(init_state, '#e6550d', dim=dim, face=True)
+    draw_node(goal_state, '#a63603', dim=dim, face=True)
+    
+    plt.annotate('start', init_state+1.0, color='black', fontsize=16)
+    plt.annotate('goal', goal_state+1.0, color='black', fontsize=16)
+
+    plt.axis([0.0, 2.0, 0.0, 2.0])
+    plt.axis('off')
+    plt.axis('square')
+
+    plt.subplots_adjust(left=-0., right=1.0, top=1.0, bottom=-0.)
+
+    if title == '':
+        plt.title('#%d Samples' % len(states) + ' #%d Edges' % len(edges), fontdict = {'fontsize':title_size})
+    else:
+        plt.title(title, fontdict = {'fontsize':title_size})
+
+    if save:
+        plt.savefig(save, bbox_inches='tight')
+        plt.close('all')
+    else:
 #         plt.show()
         pass
 
     return fig
+
 
 def plot_env_only(problem, env, fig=None, title='', save=None, title_size=25):
     
