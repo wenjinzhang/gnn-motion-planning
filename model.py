@@ -47,6 +47,12 @@ class MPNN(MessagePassing):
 
 class EncoderProcessDecoder(torch.nn.Module):
     def __init__(self, workspace_size, config_size, embed_size, obs_size, use_obstacles=True):
+        """
+        workspace_size: Non-used parameters
+        config_size: environment dimension
+        embed_size: hidden neruons 
+        obs_size: 
+        """
         super(EncoderProcessDecoder, self).__init__()
 
         self.workspace = workspace_size
