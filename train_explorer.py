@@ -218,4 +218,3 @@ if __name__ == '__main__':
 
     for epoch in tqdm(range(300)):
         train_explorer(epoch, data_path, model, model_path, env)
-    

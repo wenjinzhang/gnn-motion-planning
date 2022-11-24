@@ -32,7 +32,7 @@ def draw_edge(state0, state1, color, dim=2, style='-'):
 def plot_graph(graph, problem, title='', save=None):
     plt.clf()
     plt.close('all')
-    states = np.array(graph.V)
+    states = np.array(graph.v)
     environment_map = problem["map"]
     init_state = problem["init_state"]
     goal_state = problem["goal_state"]
@@ -56,7 +56,7 @@ def plot_graph(graph, problem, title='', save=None):
     for i in range(len(states) - 1):
         draw_node(states[i + 1], '#bbbbbb', dim=dim)
 
-    for edge, attribute in graph.E_attr.items():
+    for edge, attribute in graph.edge_attr.items():
 
         if attribute==EdgeAttribute.Free:
             draw_edge(states[edge[0]], states[edge[1]], 'green', dim=dim)
@@ -64,9 +64,10 @@ def plot_graph(graph, problem, title='', save=None):
             pass
             # draw_edge(states[edge[0]], states[edge[1]], 'blue', dim=dim)
         else:
-            if graph.V_attr[edge[0]]==EdgeAttribute.Free and \
-                    graph.V_attr[edge[1]]==EdgeAttribute.Free:
-                draw_edge(states[edge[0]], states[edge[1]], 'black', dim=dim)
+            pass
+            # if graph.V_attr[edge[0]]==EdgeAttribute.Free and \
+            #         graph.V_attr[edge[1]]==EdgeAttribute.Free:
+            #     draw_edge(states[edge[0]], states[edge[1]], 'black', dim=dim)
 
     draw_node(init_state, '#e6550d', dim=dim, face=True)
     draw_node(goal_state, '#a63603', dim=dim, face=True)
@@ -75,7 +76,7 @@ def plot_graph(graph, problem, title='', save=None):
     plt.axis('off')
     plt.axis('square')
 
-    plt.subplots_adjust(left=-0., right=1.0, top=1.0, bottom=-0.)
+    plt.subplots_adjust(left=-0., right=2.0, top=2.0, bottom=-0.)
 
     plt.title(title)
 

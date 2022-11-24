@@ -173,8 +173,6 @@ def explore(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, smoot
     loop: level of gnn
     '''
     
-
-    
     c0 = env.collision_check_count
     t0 = time()
     forward = 0
@@ -193,12 +191,18 @@ def explore(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, smoot
     prev = {0: 0}
 
     data = create_data(free, collided, env, k)
+    # print(data.v.size())
 
     # data.edge_index = radius_graph(data.v, radius(len(data.v)), loop=True)
     while not success and (len(free) - 2) <= t_max:
 
         t1 = time()
         policy = model(**data.to(device).to_dict(), **obs_data(env, free, collided), loop=loop)
+
+        # print("-------policy------")
+        # print(policy.size())
+        # print(policy)
+        # print("-------end policy------")
         policy = policy.cpu()
         forward += time() - t1
 

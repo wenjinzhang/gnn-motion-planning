@@ -23,6 +23,7 @@ class MPNN(MessagePassing):
     def __init__(self, embed_size, aggr: str = 'max', batch_norm: bool = False, **kwargs):
         super(MPNN, self).__init__(aggr=aggr, **kwargs)
         self.batch_norm = batch_norm
+        self.embed_size = embed_size
         self.lin_0 = Seq(Lin(embed_size * 5, embed_size), ReLU(), Lin(embed_size, embed_size))
         self.lin_1 = Lin(embed_size * 2, embed_size)
         self.bn = BatchNorm1d(embed_size)
@@ -41,8 +42,7 @@ class MPNN(MessagePassing):
         return values
 
     def __repr__(self):
-        return '{}({}, dim={})'.format(self.__class__.__name__, self.channels,
-                                       self.dim)
+        return '{}(embed={})'.format(self.__class__.__name__, self.embed_size)
 
 
 class EncoderProcessDecoder(torch.nn.Module):
