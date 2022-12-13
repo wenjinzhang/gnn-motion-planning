@@ -8,7 +8,7 @@ import numpy as np
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def str2env(str):
+def str2env(str, GUI= False):
     if str == 'maze2easy':
         env = MazeEnv(dim=2)
         indexes = np.arange(2000, 3000)
@@ -26,7 +26,7 @@ def str2env(str):
         indexes = np.arange(2000, 3000)
 
     elif str == 'snake7':
-        env = SnakeEnv(map_file='maze_files/snakes_15_2_3000.npz')
+        env = SnakeEnv(map_file='maze_files/snakes_15_2_3000.npz', GUI=GUI)
         indexes = np.arange(2000, 3000)
 
     elif str == 'kuka13':

@@ -11,6 +11,11 @@ from smoother import model_smooth, proposed_path_smoother, joint_smoother, inter
 from str2name import str2name
 from environment.timer import Timer
 
+import matplotlib.pyplot as plt
+import networkx as nx
+from copy import deepcopy
+
+
 loop = 5
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -20,6 +25,17 @@ class DotDict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+
+def to_np(tensor):
+    return tensor.data.cpu().numpy()
+
+def to_tuple(array):
+    return tuple(array.reshape(1, -1)[0])
+
+def to_nparray(t):
+    return np.array(t).reshape(1, -1)[0]
+
 
 
 def obs_data(env, free, collided):
@@ -276,6 +292,174 @@ def explore(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, smoot
                 'data': data,
                 'explored': explored,
                 'forward': forward,
+                'total': total_time - t0,
+                'total_explore': t1 - t0,
+                'success': success,
+                't0': t0,
+                'path': path,
+                'smooth_path': smooth_path,
+                'explored_edges': explored_edges}
+    else:
+        return list(data.v[path].data.cpu().numpy()), free, collided
+
+@torch.no_grad()
+def explore_v2(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, smoother='model', loop=5):
+    '''
+    model: path explore to find a possible path
+    model_s: smooth model
+    loop: level of gnn
+    '''
+    
+    c0 = env.collision_check_count
+    t0 = time()
+    forward = 0
+    
+    success = False
+    path, smooth_path = [], []
+    n_batch = batch
+    #     n_batch = min(batch, t_max)
+    free, collided = env.sample_n_points(n_batch, need_negative=True)
+    collided = collided[:len(free)]
+    free = [env.init_state] + [env.goal_state] + list(free)
+    
+    explored = [0]
+    explored_edges = [[0, 0]]
+    costs = {0: 0.}
+    prev = {0: 0}
+    data = create_data(free, collided, env, k)
+
+    # graph
+    G = nx.Graph()
+    node_start = to_tuple(to_np(data.v[0]))
+    node_goal = None
+
+    # data.edge_index = radius_graph(data.v, radius(len(data.v)), loop=True)
+    while not success and (len(free) - 2) <= t_max:
+
+        t1 = time()
+        policy = model(**data.to(device).to_dict(), **obs_data(env, free, collided), loop=loop)
+
+        # print("-------policy------")
+        # print(policy.size())
+        # print(policy)
+        # print("-------end policy------")
+        policy = policy.cpu()
+        forward += time() - t1
+
+        policy[torch.arange(len(data.v)), torch.arange(len(data.v))] = 0
+        policy[:, explored] = 0
+        policy[:, data.labels[:, 1] == 1] = 0
+        policy[data.labels[:, 1] == 1, :] = 0
+        policy[np.array(explored_edges).reshape(2, -1)] = 0
+        success = False
+        while policy[explored, :].sum() != 0:
+
+            agent = policy[
+                np.array(explored)[torch.where(policy[explored, :] != 0)[0]], torch.where(policy[explored, :] != 0)[
+                    1]].argmax()
+
+            end_a, end_b = torch.where(policy[explored, :] != 0)[0][agent], torch.where(policy[explored, :] != 0)[1][
+                agent]
+            end_a, end_b = int(end_a), int(end_b)
+            end_a = explored[end_a]
+            explored_edges.extend([[end_a, end_b], [end_b, end_a]])
+
+            state_a = to_np(data.v[end_a])
+            state_b = to_np(data.v[end_b])
+
+
+            if env._edge_fp(to_np(data.v[end_a]), to_np(data.v[end_b])):
+                explored.append(end_b)
+                costs[end_b] = costs[end_a] + np.linalg.norm(to_np(data.v[end_a]) - to_np(data.v[end_b]))
+                prev[end_b] = end_a
+
+                # add edge to graph
+                tmp_a = to_tuple(state_a)
+                tmp_b = to_tuple(state_b)
+                G.add_edge(tmp_a, tmp_b, weight=env.distance(state_a, state_b))
+
+                policy[:, end_b] = 0
+                if env.in_goal_region(to_np(data.v[end_b])):
+                    node_goal = tmp_b
+                    success = True
+                    cost = costs[end_b]
+                    path = [end_b]
+                    node = end_b
+                    while node != 0:
+                        path.append(prev[node])
+                        node = prev[node]
+                    path.reverse()
+                    break
+            else:
+                policy[end_a, end_b] = 0
+                policy[end_b, end_a] = 0
+
+        if not success:
+            if not smooth:
+                return []
+
+            if (n_batch + len(free) - 2) > t_max:
+                break
+            # ----------------------------------------resample----------------------------------------
+            new_free, new_collided = env.sample_n_points(n_batch, need_negative=True)
+            free = free + list(new_free)
+            collided = collided + list(new_collided)
+            collided = collided[:len(free)]
+
+            data = create_data(free, collided, env, k)
+
+    c_explore = env.collision_check_count - c0
+    c1 = env.collision_check_count
+    t1 = time()
+    if success and smooth:
+        path = list(data.v[path].data.cpu().numpy())
+        if smoother == 'model':
+            smooth_path = model_smooth(model_s, free, collided, path, env)
+        elif smoother == 'oracle':
+            smooth_path = joint_smoother(path, env, iter=5)
+        else:
+            smooth_path = path
+    
+    # involve more connection within network
+    graph = deepcopy(G)
+    number_nodes = len(graph.nodes)
+    nodes = list(graph.nodes)
+    count = 0
+    for i in range(number_nodes):
+        collision = 0
+        for j in range(i+1, number_nodes):
+            node_x, node_y = nodes[i], nodes[j]
+            if not graph.has_edge(node_x, node_y):
+                if env._edge_fp(np.array(node_x), np.array(node_y)):
+                    # change distance method
+                    # graph.add_edge(node_x, node_y, weight=np.linalg.norm(np.array(node_x) - np.array(node_y)))
+                    
+                    graph.add_edge(node_x, node_y, weight=env.distance(np.array(node_x), np.array(node_y)))
+                    count = count + 1
+                else:
+                    collision = collision + 1
+    # print("add {} edges".format(count))
+    # optain optimal path
+    if success:
+        optim_path = nx.shortest_path(graph, source=node_start, target=node_goal, weight="weight")
+        optim_cost = 0
+
+        for i in range(len(optim_path)-1):
+            optim_cost = optim_cost + env.distance(np.array(optim_path[i]), np.array(optim_path[i+1]))
+    else:
+        optim_cost = 0
+        optim_path = path
+
+    c_smooth = env.collision_check_count - c1
+    if smooth:
+        total_time = time()
+        return {'c_explore': c_explore,
+                'c_smooth': c_smooth,
+                'optim_cost': optim_cost,
+                'optim_path':optim_path, 
+                # 'data': data,
+                # 'explored': explored,
+                # 'forward': forward,
                 'total': total_time - t0,
                 'total_explore': t1 - t0,
                 'success': success,

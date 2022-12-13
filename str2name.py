@@ -7,6 +7,7 @@ import numpy as np
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+# device = torch.device("cpu")
 
 def str2name(str, get_data=False, use_obstacle=True, load=False):
     if 'maze2' in str:

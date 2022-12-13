@@ -126,6 +126,7 @@ class SnakeEnv:
 
         for i in range(len(config[3:])):
             p.resetJointState(snakeId, i * 2 + 1, config[i + 2])
+
         p.performCollisionDetection()
 
         if len(p.getContactPoints(snakeId)) == 0: #and len(p.getClosestPoints(snakeId, mazeId, 0.3)) == 0 and len(p.getContactPoints(snakeId, snakeId)) == 0:
@@ -197,7 +198,7 @@ class SnakeEnv:
         while True:
             points = self.sample_n_points(n=2)
             init, goal = points[0], points[1]
-            if np.sum(np.abs(init - goal)) != 0:
+            if np.sum(np.abs(init - goal)) > 3:
                 break
         self.init_state, self.goal_state = init, goal
 
@@ -284,6 +285,23 @@ class SnakeEnv:
 
         return new_state, action, no_collision, done
 
+    def plot_v2(self, path):
+        self.reset(self.map)
+        start = list(path[0][:2]) + [SnakeEnv.height]
+        goal =  list(path[-1][:2]) + [SnakeEnv.height]
+        p.addUserDebugText("start", start, textColorRGB=[0, 1, 0], textSize= 4)
+        p.addUserDebugText("goal", goal, textColorRGB=[1, 0, 0], textSize=  4)
+
+        for i in range(len(path)):
+            if i == 0:
+                new_snake = self.create_snake(phantom=False)
+                self.set_config(path[i], snakeId=new_snake)
+            else:
+                new_snake = self.create_snake(phantom=False)
+                self.set_config(path[i], snakeId=new_snake)
+        
+
+
     def plot(self, map, path, make_gif=False):
         # self.reset(map)
         path = np.array(path)
@@ -322,6 +340,8 @@ class SnakeEnv:
                 break
 
         return gifs
+    
+
 
     # =====================internal collision check module=======================
 

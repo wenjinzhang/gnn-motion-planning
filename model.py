@@ -17,7 +17,8 @@ from torch_sparse import coalesce
 import math
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+# device = torch.device("cpu")
+import time
 
 class MPNN(MessagePassing):
     def __init__(self, embed_size, aggr: str = 'max', batch_norm: bool = False, **kwargs):
@@ -65,17 +66,19 @@ class EncoderProcessDecoder(torch.nn.Module):
         self.node_code = Seq(Lin(config_size*4, embed_size), ReLU(), Lin(embed_size, embed_size))
         self.edge_code = Seq(Lin(config_size*2, embed_size), ReLU(), Lin(embed_size, embed_size))
 
+        # share the same parameter 
         self.obs_node_code = Seq(Lin(obs_size, embed_size), ReLU(), Lin(embed_size, embed_size))
         self.obs_edge_code = Seq(Lin(obs_size, embed_size), ReLU(), Lin(embed_size, embed_size))
-        self.free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
-        self.collided_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
 
-        self.env_code = Seq(Lin(embed_size*3, embed_size), ReLU(), Lin(embed_size, embed_size))
+        # no used parameter
+        # self.free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        # self.collided_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
 
-        self.node_free_code = Seq(Lin(config_size, embed_size),
-                                  ReLU(), Lin(embed_size, embed_size))
-        self.edge_free_code = Seq(Lin(config_size * 2, embed_size),
-                                  ReLU(), Lin(embed_size, embed_size))
+        # self.env_code = Seq(Lin(embed_size*3, embed_size), ReLU(), Lin(embed_size, embed_size))
+
+        # share the same dimension with free_code
+        self.node_free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.edge_free_code = Seq(Lin(config_size*2, embed_size), ReLU(), Lin(embed_size, embed_size))
 
         self.node_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
         self.edge_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
@@ -119,33 +122,41 @@ class EncoderProcessDecoder(torch.nn.Module):
         self.edge_feature.reset_parameters()
 
     def forward(self, goal, loop, v, obstacles, free, collided, edge_index, k=10, **kwargs):
+        start_time = time.time()
+        gnn_time = 0
 
         goal = goal.view(-1, self.config_size)
 
         node_code = self.node_code(torch.cat((v, goal.repeat(len(v), 1), (v-goal)**2, v-goal), dim=-1))
         edge_code = self.edge_code(torch.cat((v[edge_index[0, :]], v[edge_index[1, :]]), dim=-1))
 
-        node_free_code = self.node_free_code(v)
+        node_free_code = self.node_free_code(v) # p3
         edge_free_code = self.edge_free_code(torch.cat((v[edge_index[0, :]], v[edge_index[1, :]]), dim=-1))
 
+        tt1 = time.time()
         if self.use_obstacles:
+            # encode obstacles verticles
             obs_node_code = self.obs_node_code(obstacles.view(-1, self.obs_size))
+            # encode obstacles edge
             obs_edge_code = self.obs_edge_code(obstacles.view(-1, self.obs_size))
             for na, ea in zip(self.node_attentions, self.edge_attentions):
                 node_free_code, obs_node_code = na(node_free_code, obs_node_code)
                 edge_free_code, obs_edge_code = ea(edge_free_code, obs_edge_code)
+        tt2 = time.time()
 
         goal_index = knn(v, goal, k=1)[1]
         h_0 = node_code.new_zeros(len(node_code), self.embed_size)
         h_0[goal_index, :] = h_0[goal_index, :] + self.goal_encoder
         h_i = h_0
-
+        
         # value iteration on latent graph
         # state = self.lstm(h_i, None)
         for i in range(loop):
-
             encode = self.encoder(torch.cat((node_code, node_free_code.detach(), h_0, h_i), dim=-1))
+            t2 = time.time()
             h_i = self.process(encode, edge_index, torch.cat((edge_free_code.detach(), edge_code), dim=-1))
+            t3 = time.time()
+            gnn_time = gnn_time + t3 - t2
             decode = self.decoder(torch.cat((node_code, h_i), dim=-1))
 
         policy = self.policy(torch.cat((decode[edge_index[0, :]], decode[edge_index[0, :]]-decode[edge_index[1, :]],
@@ -153,7 +164,153 @@ class EncoderProcessDecoder(torch.nn.Module):
 
         policy_output = policy.new_zeros(len(v), len(v))
         policy_output[edge_index[1, :], edge_index[0, :]] = policy.squeeze()
+        total_time = time.time() - start_time
+        atten_time = tt2-tt1
+
+        time_log = {
+            "total_time": total_time,
+            "encode_time": total_time - gnn_time,
+            "atten_time": atten_time,
+            "GNN_time":gnn_time,
+
+        }
+        #print("total time:{}; encoder_time:{}; GNN time:{}; attention time: {}".format(total_time, total_time - gnn_time - atten, gnn_time, atten))
+
         return policy_output
+
+
+class EncoderProcessDecoder_V2(torch.nn.Module):
+    def __init__(self, workspace_size, config_size, embed_size, obs_size, use_obstacles=True):
+        """
+        workspace_size: Non-used parameters
+        config_size: environment dimension
+        embed_size: hidden neruons 
+        obs_size: 
+        """
+        super(EncoderProcessDecoder, self).__init__()
+
+        self.workspace = workspace_size
+        self.config_size = config_size
+        self.obs_size = obs_size
+        self.use_obstacles = use_obstacles
+
+        self.embed_size = embed_size
+
+        self.node_code = Seq(Lin(config_size*4, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.edge_code = Seq(Lin(config_size*2, embed_size), ReLU(), Lin(embed_size, embed_size))
+
+        # share the same parameter 
+        self.obs_node_code = Seq(Lin(obs_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.obs_edge_code = Seq(Lin(obs_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+
+        # no used parameter
+        # self.free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        # self.collided_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.env_code = Seq(Lin(embed_size*3, embed_size), ReLU(), Lin(embed_size, embed_size))
+
+        
+        self.node_free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.edge_free_code = Seq(Lin(config_size*2, embed_size), ReLU(), Lin(embed_size, embed_size))
+
+        self.node_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
+        self.edge_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
+        # self.graph_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
+
+        self.goal_encoder = nn.Parameter(torch.rand(embed_size))
+        self.node_pos = Lin(config_size, embed_size)
+
+        self.encoder = Lin(embed_size * 4, embed_size)
+        self.process = MPNN(embed_size, aggr='max')
+        self.lstm = torch.nn.LSTMCell(embed_size, embed_size)
+        self.ln = torch.nn.LayerNorm(embed_size)
+
+        self.bn_node = torch.nn.BatchNorm1d(embed_size)
+        self.bn_edge = torch.nn.BatchNorm1d(embed_size)
+        self.bn_hi = torch.nn.BatchNorm1d(embed_size)
+
+        self.ln_node = torch.nn.LayerNorm(embed_size)
+        self.ln_edge = torch.nn.LayerNorm(embed_size)
+        self.ln_hi = torch.nn.LayerNorm(embed_size)
+
+        self.process_cat = Lin(embed_size * 2, embed_size)
+        self.decoder = Lin(embed_size * 2, embed_size)
+
+        self.value = Seq(Lin(embed_size, embed_size), ReLU(),
+                          Lin(embed_size, embed_size), ReLU(),
+                          Lin(embed_size, 1))
+        self.policy = Seq(Lin(embed_size*3, embed_size), ReLU(),
+                          Lin(embed_size, embed_size), ReLU(),
+                          Lin(embed_size, 1, bias=False))
+
+        self.node_free = Lin(embed_size, 1)
+        self.edge_free = Lin(embed_size, 1)
+
+    def reset_parameters(self):
+        self.encoder.reset_parameters()
+        self.decoder.reset_parameters()
+        for op in self.ops:
+            op.reset_parameters()
+        self.node_feature.reset_parameters()
+        self.edge_feature.reset_parameters()
+
+    def forward(self, goal, loop, v, obstacles, free, collided, edge_index, k=10, **kwargs):
+        start_time = time.time()
+        gnn_time = 0
+
+        goal = goal.view(-1, self.config_size)
+
+        node_code = self.node_code(torch.cat((v, goal.repeat(len(v), 1), (v-goal)**2, v-goal), dim=-1))
+        edge_code = self.edge_code(torch.cat((v[edge_index[0, :]], v[edge_index[1, :]]), dim=-1))
+
+        node_free_code = self.node_free_code(v) # p3
+        edge_free_code = self.edge_free_code(torch.cat((v[edge_index[0, :]], v[edge_index[1, :]]), dim=-1))
+
+        tt1 = time.time()
+        if self.use_obstacles:
+            # encode obstacles verticles
+            obs_node_code = self.obs_node_code(obstacles.view(-1, self.obs_size))
+            # encode obstacles edge
+            obs_edge_code = self.obs_edge_code(obstacles.view(-1, self.obs_size))
+            for na, ea in zip(self.node_attentions, self.edge_attentions):
+                node_free_code, obs_node_code = na(node_free_code, obs_node_code)
+                edge_free_code, obs_edge_code = ea(edge_free_code, obs_edge_code)
+        tt2 = time.time()
+
+        goal_index = knn(v, goal, k=1)[1]
+        h_0 = node_code.new_zeros(len(node_code), self.embed_size)
+        h_0[goal_index, :] = h_0[goal_index, :] + self.goal_encoder
+        h_i = h_0
+        
+        # value iteration on latent graph
+        # state = self.lstm(h_i, None)
+        for i in range(loop):
+            encode = self.encoder(torch.cat((node_code, node_free_code.detach(), h_0, h_i), dim=-1))
+            t2 = time.time()
+            h_i = self.process(encode, edge_index, torch.cat((edge_free_code.detach(), edge_code), dim=-1))
+            t3 = time.time()
+            gnn_time = gnn_time + t3 - t2
+            decode = self.decoder(torch.cat((node_code, h_i), dim=-1))
+
+        policy = self.policy(torch.cat((decode[edge_index[0, :]], decode[edge_index[0, :]]-decode[edge_index[1, :]],
+                                        edge_free_code.detach()), dim=-1))
+
+        policy_output = policy.new_zeros(len(v), len(v))
+        policy_output[edge_index[1, :], edge_index[0, :]] = policy.squeeze()
+        total_time = time.time() - start_time
+        atten_time = tt2-tt1
+
+        time_log = {
+            "total_time": total_time,
+            "encode_time": total_time - gnn_time,
+            "atten_time": atten_time,
+            "GNN_time":gnn_time,
+
+        }
+        #print("total time:{}; encoder_time:{}; GNN time:{}; attention time: {}".format(total_time, total_time - gnn_time - atten, gnn_time, atten))
+
+        return policy_output, time_log
+
+
 
 
 class Attention(torch.nn.Module):
@@ -222,3 +379,4 @@ class Block(torch.nn.Module):
         obs_code = self.obs_feed(obs_code)
 
         return map_code, obs_code
+

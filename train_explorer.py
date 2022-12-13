@@ -214,7 +214,10 @@ if __name__ == '__main__':
     from tqdm import tqdm
     from config import set_random_seed
     from str2name import str2name
+    from model import EncoderProcessDecoder
     env, model, model_path, model_s, model_s_path, data_path= str2name("maze2", get_data=True)
 
+    model_explore = EncoderProcessDecoder(workspace_size=2, config_size=2, embed_size=32, obs_size=2).to(device)
+
     for epoch in tqdm(range(300)):
-        train_explorer(epoch, data_path, model, model_path, env)
+        train_explorer(epoch, data_path, model_explore, model_path, env)
