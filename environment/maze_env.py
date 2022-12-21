@@ -39,20 +39,32 @@ class MazeEnv:
     def __str__(self):
         return 'maze'+str(self.config_dim)
 
-    def moving_once(self, problem, direction=None, step_size=1):
+    def add_moving_obstacles(self, moving_obstacles):
+        # add moving obstacles
+        if len(moving_obstacles) > 0:
+            for (i,j) in moving_obstacles:
+                self.map[i, j] = 1
+                print("add node({}, {})".format(i, j))
+                print("now node({}, {}) is map:{}".format(i, j, self.map[i, j]))
+            self.moving_obstacles = np.array(moving_obstacles) * 2 / self.map.shape[0] - 1
+            self.obstacles = np.append(self.obstacles, self.moving_obstacles, axis=0)
+
+
+
+    def moving_once(self, problem, obs_direction=None, step_size = 1):
         '''
         moving all obstacles once with step_size
         if direction is None, perform random move
         direction = (up/down, left/right)
         '''
-        if direction == None:
+        if obs_direction == None:
             # random direction
-            direction = np.random.randint(3, size=2) - 1
+            obs_direction = np.random.randint(3, size=2) - 1
         
         # print("direction", direction)
 
         # target_obstacles
-        target_obstacles = self.moving_obstacles + direction * step_size
+        target_obstacles = self.moving_obstacles + obs_direction * step_size
 
         # print("Next Location", target_obstacles)
 
@@ -74,11 +86,8 @@ class MazeEnv:
             # reset the fixed obstacles
             self.map =  deepcopy(self.maps[self.order[self.index]])
             
-            
             for (i, j) in target_obstacles:
                 self.map[i][j] = 1
-
-
             # update obstacles:  self.obstacles regenerate obstacles
             self.obstacles = []
 
@@ -87,7 +96,7 @@ class MazeEnv:
                     if self.map[i, j] == 1:
                         self.obstacles.append((i, j))
             
-            self.obstacles = np.array(self.obstacles) * 2/ self.map.shape[0] - 1
+            self.obstacles = np.array(self.obstacles) * 2 / self.map.shape[0] - 1
 
             problem["map"] = self.map
 
@@ -111,7 +120,7 @@ class MazeEnv:
 
         self.collision_point = None
 
-        self.moving_obstacles = [(2,4),(2,5),(3,4),(3,5)]
+        self.moving_obstacles = []
         self.index = index 
 
         # if index==2000:
@@ -133,18 +142,10 @@ class MazeEnv:
 
         self.obstacles = []
 
-        # add moving obstacles
-        if len(self.moving_obstacles) > 0:
-            self.obstacles.extend(self.moving_obstacles)
-            for (i,j) in self.moving_obstacles:
-                self.map[i, j] == 1
-
         for i in range(self.map.shape[0]):
             for j in range(self.map.shape[1]):
                 if self.map[i, j] == 1:
                     self.obstacles.append((i, j))
-        
-        # print(self.obstacles)
 
         # self.obstacles = np.array(self.obstacles) / self.map.shape[0] - 0.5
         self.obstacles = np.array(self.obstacles) * 2/ self.map.shape[0] - 1
