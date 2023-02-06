@@ -71,10 +71,10 @@ class EncoderProcessDecoder(torch.nn.Module):
         self.obs_edge_code = Seq(Lin(obs_size, embed_size), ReLU(), Lin(embed_size, embed_size))
 
         # no used parameter
-        # self.free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
-        # self.collided_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.collided_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
 
-        # self.env_code = Seq(Lin(embed_size*3, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.env_code = Seq(Lin(embed_size*3, embed_size), ReLU(), Lin(embed_size, embed_size))
 
         # share the same dimension with free_code
         self.node_free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
@@ -204,8 +204,8 @@ class EncoderProcessDecoder_V2(torch.nn.Module):
         self.obs_edge_code = Seq(Lin(obs_size, embed_size), ReLU(), Lin(embed_size, embed_size))
 
         # no used parameter
-        # self.free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
-        # self.collided_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.free_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
+        self.collided_code = Seq(Lin(config_size, embed_size), ReLU(), Lin(embed_size, embed_size))
         self.env_code = Seq(Lin(embed_size*3, embed_size), ReLU(), Lin(embed_size, embed_size))
 
         
@@ -214,7 +214,7 @@ class EncoderProcessDecoder_V2(torch.nn.Module):
 
         self.node_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
         self.edge_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
-        # self.graph_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
+        self.graph_attentions = torch.nn.ModuleList([Block(embed_size) for _ in range(3)])
 
         self.goal_encoder = nn.Parameter(torch.rand(embed_size))
         self.node_pos = Lin(config_size, embed_size)
