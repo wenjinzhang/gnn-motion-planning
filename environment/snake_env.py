@@ -262,6 +262,14 @@ class SnakeEnv:
         return self.distance(state, self.goal_state) < self.RRT_EPS and \
                self._state_fp(state)
 
+    
+    def in_start_region(self, state):
+        '''
+        Return whether a state(configuration) is in the start region
+        '''
+        return self.distance(state, self.init_state) < self.RRT_EPS and \
+               self._state_fp(state)
+
     def step(self, state, action=None, new_state=None, check_collision=True):
         '''
         Collision detection module

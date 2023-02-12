@@ -164,7 +164,7 @@ def eval_gnn(str, seed, env, indexes, model=None, model_s=None, use_tqdm=False, 
 
 
 def create_data(free, collided, env, k):
-    data = Data(goal=torch.FloatTensor(env.goal_state))
+    data = Data(goal=torch.FloatTensor(env.init_state))
     data.v = torch.cat((torch.FloatTensor(np.array(free)),
                         torch.FloatTensor(np.array(collided))), dim=0)
     # create labels
@@ -320,7 +320,7 @@ def explore_v2(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, sm
     #     n_batch = min(batch, t_max)
     free, collided = env.sample_n_points(n_batch, need_negative=True)
     collided = collided[:len(free)]
-    free = [env.init_state] + [env.goal_state] + list(free)
+    free =  [env.goal_state] + [env.init_state] + list(free)
     
     explored = [0]
     explored_edges = [[0, 0]]
@@ -379,7 +379,7 @@ def explore_v2(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, sm
                 G.add_edge(tmp_a, tmp_b, weight=env.distance(state_a, state_b))
 
                 policy[:, end_b] = 0
-                if env.in_goal_region(to_np(data.v[end_b])):
+                if env.in_start_region(to_np(data.v[end_b])):
                     node_goal = tmp_b
                     success = True
                     cost = costs[end_b]
@@ -407,7 +407,7 @@ def explore_v2(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, sm
             collided = collided[:len(free)]
 
             data = create_data(free, collided, env, k)
-
+    print("explore {} edges".format(len(explored_edges)/2))
     c_explore = env.collision_check_count - c0
     c1 = env.collision_check_count
     t1 = time()
@@ -422,22 +422,22 @@ def explore_v2(env, model, model_s, smooth=True, batch=500, t_max=1000, k=30, sm
     
     # involve more connection within network
     graph = deepcopy(G)
-    number_nodes = len(graph.nodes)
-    nodes = list(graph.nodes)
-    count = 0
-    for i in range(number_nodes):
-        collision = 0
-        for j in range(i+1, number_nodes):
-            node_x, node_y = nodes[i], nodes[j]
-            if not graph.has_edge(node_x, node_y):
-                if env._edge_fp(np.array(node_x), np.array(node_y)):
-                    # change distance method
-                    # graph.add_edge(node_x, node_y, weight=np.linalg.norm(np.array(node_x) - np.array(node_y)))
+    # number_nodes = len(graph.nodes)
+    # nodes = list(graph.nodes)
+    # count = 0
+    # for i in range(number_nodes):
+    #     collision = 0
+    #     for j in range(i+1, number_nodes):
+    #         node_x, node_y = nodes[i], nodes[j]
+    #         if not graph.has_edge(node_x, node_y):
+    #             if env._edge_fp(np.array(node_x), np.array(node_y)):
+    #                 # change distance method
+    #                 # graph.add_edge(node_x, node_y, weight=np.linalg.norm(np.array(node_x) - np.array(node_y)))
                     
-                    graph.add_edge(node_x, node_y, weight=env.distance(np.array(node_x), np.array(node_y)))
-                    count = count + 1
-                else:
-                    collision = collision + 1
+    #                 graph.add_edge(node_x, node_y, weight=env.distance(np.array(node_x), np.array(node_y)))
+    #                 count = count + 1
+    #             else:
+    #                 collision = collision + 1
     # print("add {} edges".format(count))
     # optain optimal path
     if success:
